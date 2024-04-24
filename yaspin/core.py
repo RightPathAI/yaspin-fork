@@ -425,7 +425,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
             self._stop_spin.wait(self._interval)
 
     def _compose_color_func(self) -> Optional[Callable[..., str]]:
-        if self.is_jupyter(fd = self._fd):
+        if self.is_jupyter():
             # ANSI Color Control Sequences are problematic in Jupyter
             return None
 
@@ -495,12 +495,12 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
     # Static
     #
     @staticmethod
-    def is_jupyter(fd: typing.IO = sys.stdout) -> bool:
-        return not fd.isatty()
+    def is_jupyter() -> bool:
+        return False
 
     @staticmethod
-    def _set_color(value: str, fd: typing.IO = sys.stdout) -> str:
-        if Yaspin.is_jupyter(fd):
+    def _set_color(value: str) -> str:
+        if Yaspin.is_jupyter():
             Yaspin._warn_color_disabled()
 
         if value not in COLORS:
@@ -512,8 +512,8 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
         return value
 
     @staticmethod
-    def _set_on_color(value: str, fd: typing.IO = sys.stdout) -> str:
-        if Yaspin.is_jupyter(fd):
+    def _set_on_color(value: str) -> str:
+        if Yaspin.is_jupyter():
             Yaspin._warn_color_disabled()
 
         if value not in HIGHLIGHTS:
@@ -524,8 +524,8 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
         return value
 
     @staticmethod
-    def _set_attrs(attrs: Sequence[str], fd: typing.IO = sys.stdout) -> set[str]:
-        if Yaspin.is_jupyter(fd):
+    def _set_attrs(attrs: Sequence[str]) -> set[str]:
+        if Yaspin.is_jupyter():
             Yaspin._warn_color_disabled()
 
         for attr in attrs:
@@ -596,22 +596,16 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
 
     @staticmethod
     def _hide_cursor(fd: typing.IO) -> None:
-        if fd.isatty():
-            # ANSI Control Sequence DECTCEM 1 does not work in Jupyter
-            fd.write("\033[?25l")
-            fd.flush()
+        # ANSI Control Sequence DECTCEM 1 does not work in Jupyter
+        fd.write("\033[?25l")
+        fd.flush()
 
     @staticmethod
     def _show_cursor(fd: typing.IO) -> None:
-        if fd.isatty():
-            # ANSI Control Sequence DECTCEM 2 does not work in Jupyter
-            fd.write("\033[?25h")
-            fd.flush()
+        # ANSI Control Sequence DECTCEM 2 does not work in Jupyter
+        fd.write("\033[?25h")
+        fd.flush()
 
     def _clear_line(self) -> None:
-        if self._fd.isatty():
-            # ANSI Control Sequence EL does not work in Jupyter
-            self._fd.write("\r\033[K")
-        else:
-            fill = " " * self._cur_line_len
-            self._fd.write(f"\r{fill}\r")
+        # ANSI Control Sequence EL does not work in Jupyter
+        self._fd.write("\r\033[K")
