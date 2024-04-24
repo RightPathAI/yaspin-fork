@@ -119,9 +119,9 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
         self._fd = fd
 
         # Color Specification
-        self._color = self._set_color(color) if color else color
-        self._on_color = self._set_on_color(on_color) if on_color else on_color
-        self._attrs = self._set_attrs(attrs) if attrs else set()
+        self._color = self._set_color(color, fd = self.fd) if color else color
+        self._on_color = self._set_on_color(on_color, fd = self.fd) if on_color else on_color
+        self._attrs = self._set_attrs(attrs, fd = self.fd) if attrs else set()
         self._color_func = self._compose_color_func()
 
         # Other
@@ -228,7 +228,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
 
     @color.setter
     def color(self, value: str) -> None:
-        self._color = self._set_color(value) if value else value
+        self._color = self._set_color(value, fd = self.fd) if value else value
         self._color_func = self._compose_color_func()  # update
 
     @property
@@ -237,7 +237,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
 
     @on_color.setter
     def on_color(self, value: str) -> None:
-        self._on_color = self._set_on_color(value) if value else value
+        self._on_color = self._set_on_color(value, fd = self.fd) if value else value
         self._color_func = self._compose_color_func()  # update
 
     @property
@@ -246,7 +246,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
 
     @attrs.setter
     def attrs(self, value: Sequence[str]) -> None:
-        new_attrs = self._set_attrs(value) if value else set()
+        new_attrs = self._set_attrs(value, fd = self.fd) if value else set()
         self._attrs = self._attrs.union(new_attrs)
         self._color_func = self._compose_color_func()  # update
 
@@ -425,7 +425,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
             self._stop_spin.wait(self._interval)
 
     def _compose_color_func(self) -> Optional[Callable[..., str]]:
-        if self.is_jupyter():
+        if self.is_jupyter(fd = self.fd):
             # ANSI Color Control Sequences are problematic in Jupyter
             return None
 
@@ -495,12 +495,12 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
     # Static
     #
     @staticmethod
-    def is_jupyter(fd: typing.IO) -> bool:
+    def is_jupyter(fd: typing.IO = sys.stdout) -> bool:
         return not fd.isatty()
 
     @staticmethod
-    def _set_color(value: str) -> str:
-        if Yaspin.is_jupyter():
+    def _set_color(value: str, fd: typing.IO = sys.stdout) -> str:
+        if Yaspin.is_jupyter(fd):
             Yaspin._warn_color_disabled()
 
         if value not in COLORS:
@@ -512,8 +512,8 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
         return value
 
     @staticmethod
-    def _set_on_color(value: str) -> str:
-        if Yaspin.is_jupyter():
+    def _set_on_color(value: str, fd: typing.IO = sys.stdout) -> str:
+        if Yaspin.is_jupyter(fd):
             Yaspin._warn_color_disabled()
 
         if value not in HIGHLIGHTS:
@@ -524,8 +524,8 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
         return value
 
     @staticmethod
-    def _set_attrs(attrs: Sequence[str]) -> set[str]:
-        if Yaspin.is_jupyter():
+    def _set_attrs(attrs: Sequence[str], fd: typing.IO = sys.stdout) -> set[str]:
+        if Yaspin.is_jupyter(fd):
             Yaspin._warn_color_disabled()
 
         for attr in attrs:
