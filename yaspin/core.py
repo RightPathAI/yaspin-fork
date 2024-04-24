@@ -95,7 +95,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
     """
 
     # When Python finds its output attached to a terminal,
-    # it sets the self.fd.encoding attribute to the terminal's encoding.
+    # it sets the self._fd.encoding attribute to the terminal's encoding.
     # The print statement's handler will automatically encode unicode
     # arguments into bytes.
     def __init__(  # pylint: disable=too-many-arguments
@@ -119,9 +119,9 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
         self._fd = fd
 
         # Color Specification
-        self._color = self._set_color(color, fd = self.fd) if color else color
-        self._on_color = self._set_on_color(on_color, fd = self.fd) if on_color else on_color
-        self._attrs = self._set_attrs(attrs, fd = self.fd) if attrs else set()
+        self._color = self._set_color(color, fd = self._fd) if color else color
+        self._on_color = self._set_on_color(on_color, fd = self._fd) if on_color else on_color
+        self._attrs = self._set_attrs(attrs, fd = self._fd) if attrs else set()
         self._color_func = self._compose_color_func()
 
         # Other
@@ -228,7 +228,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
 
     @color.setter
     def color(self, value: str) -> None:
-        self._color = self._set_color(value, fd = self.fd) if value else value
+        self._color = self._set_color(value, fd = self._fd) if value else value
         self._color_func = self._compose_color_func()  # update
 
     @property
@@ -237,7 +237,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
 
     @on_color.setter
     def on_color(self, value: str) -> None:
-        self._on_color = self._set_on_color(value, fd = self.fd) if value else value
+        self._on_color = self._set_on_color(value, fd = self._fd) if value else value
         self._color_func = self._compose_color_func()  # update
 
     @property
@@ -246,7 +246,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
 
     @attrs.setter
     def attrs(self, value: Sequence[str]) -> None:
-        new_attrs = self._set_attrs(value, fd = self.fd) if value else set()
+        new_attrs = self._set_attrs(value, fd = self._fd) if value else set()
         self._attrs = self._attrs.union(new_attrs)
         self._color_func = self._compose_color_func()  # update
 
@@ -282,7 +282,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
         if self._sigmap:
             self._register_signal_handlers()
 
-        self._hide_cursor(self.fd)
+        self._hide_cursor(self._fd)
         self._start_time = time.time()
         # Reset value to properly calculate subsequent spinner starts (if any)
         self._stop_time = None
@@ -294,7 +294,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
         finally:
             # Ensure cursor is not hidden if any failure occurs that prevents
             # getting it back
-            self._show_cursor(self.fd)
+            self._show_cursor(self._fd)
 
     def stop(self) -> None:
         self._stop_time = time.time()
@@ -310,7 +310,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
             self._spin_thread.join()
 
         self._clear_line()
-        self._show_cursor(self.fd)
+        self._show_cursor(self._fd)
 
     def hide(self) -> None:
         """Hide the spinner to allow for custom writing to the terminal."""
@@ -326,7 +326,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
 
                 # flush the stdout buffer so the current line
                 # can be rewritten to
-                self.fd.flush()
+                self._fd.flush()
 
     @contextmanager
     def hidden(self) -> Generator[None, None, None]:
@@ -364,7 +364,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
                 _text = to_unicode(text)
             else:
                 _text = str(text)
-            self.fd.write(f"{_text}\n")
+            self._fd.write(f"{_text}\n")
             self._cur_line_len = 0
 
     def ok(self, text: str = "OK") -> None:
@@ -397,7 +397,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
         with self._stdout_lock:
             if self._last_frame is None:
                 raise RuntimeError("last_frame is None")
-            self.fd.write(self._last_frame)
+            self._fd.write(self._last_frame)
             self._cur_line_len = 0
 
     def _spin(self) -> None:
@@ -417,15 +417,15 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
             # Write
             with self._stdout_lock:
                 self._clear_line()
-                self.fd.write(out)
-                self.fd.flush()
+                self._fd.write(out)
+                self._fd.flush()
                 self._cur_line_len = max(self._cur_line_len, len(out))
 
             # Wait
             self._stop_spin.wait(self._interval)
 
     def _compose_color_func(self) -> Optional[Callable[..., str]]:
-        if self.is_jupyter(fd = self.fd):
+        if self.is_jupyter(fd = self._fd):
             # ANSI Color Control Sequences are problematic in Jupyter
             return None
 
@@ -609,9 +609,9 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
             fd.flush()
 
     def _clear_line(self) -> None:
-        if self.fd.isatty():
+        if self._fd.isatty():
             # ANSI Control Sequence EL does not work in Jupyter
-            self.fd.write("\r\033[K")
+            self._fd.write("\r\033[K")
         else:
             fill = " " * self._cur_line_len
-            self.fd.write(f"\r{fill}\r")
+            self._fd.write(f"\r{fill}\r")
