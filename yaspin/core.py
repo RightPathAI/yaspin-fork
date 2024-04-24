@@ -9,13 +9,14 @@ A lightweight terminal spinner.
 """
 from __future__ import annotations
 
+import sys
+import time
+import signal
+import typing
+import warnings
 import functools
 import itertools
-import signal
-import sys
 import threading
-import time
-import warnings
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import timedelta
@@ -94,7 +95,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
     """
 
     # When Python finds its output attached to a terminal,
-    # it sets the sys.stdout.encoding attribute to the terminal's encoding.
+    # it sets the self.fd.encoding attribute to the terminal's encoding.
     # The print statement's handler will automatically encode unicode
     # arguments into bytes.
     def __init__(  # pylint: disable=too-many-arguments
@@ -108,12 +109,14 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
         side: str = "left",
         sigmap: Optional[dict[signal.Signals, SignalHandlers]] = None,
         timer: bool = False,
+        fd: int = typing.IO,
     ) -> None:
         # Spinner
         self._spinner = self._set_spinner(spinner)
         self._frames = self._set_frames(self._spinner, reversal)
         self._interval = self._set_interval(self._spinner)
         self._cycle = self._set_cycle(self._frames)
+        self._fd = fd
 
         # Color Specification
         self._color = self._set_color(color) if color else color
@@ -279,7 +282,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
         if self._sigmap:
             self._register_signal_handlers()
 
-        self._hide_cursor()
+        self._hide_cursor(self.fd)
         self._start_time = time.time()
         # Reset value to properly calculate subsequent spinner starts (if any)
         self._stop_time = None
@@ -291,7 +294,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
         finally:
             # Ensure cursor is not hidden if any failure occurs that prevents
             # getting it back
-            self._show_cursor()
+            self._show_cursor(self.fd)
 
     def stop(self) -> None:
         self._stop_time = time.time()
@@ -307,7 +310,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
             self._spin_thread.join()
 
         self._clear_line()
-        self._show_cursor()
+        self._show_cursor(self.fd)
 
     def hide(self) -> None:
         """Hide the spinner to allow for custom writing to the terminal."""
@@ -323,7 +326,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
 
                 # flush the stdout buffer so the current line
                 # can be rewritten to
-                sys.stdout.flush()
+                self.fd.flush()
 
     @contextmanager
     def hidden(self) -> Generator[None, None, None]:
@@ -361,7 +364,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
                 _text = to_unicode(text)
             else:
                 _text = str(text)
-            sys.stdout.write(f"{_text}\n")
+            self.fd.write(f"{_text}\n")
             self._cur_line_len = 0
 
     def ok(self, text: str = "OK") -> None:
@@ -394,7 +397,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
         with self._stdout_lock:
             if self._last_frame is None:
                 raise RuntimeError("last_frame is None")
-            sys.stdout.write(self._last_frame)
+            self.fd.write(self._last_frame)
             self._cur_line_len = 0
 
     def _spin(self) -> None:
@@ -414,8 +417,8 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
             # Write
             with self._stdout_lock:
                 self._clear_line()
-                sys.stdout.write(out)
-                sys.stdout.flush()
+                self.fd.write(out)
+                self.fd.flush()
                 self._cur_line_len = max(self._cur_line_len, len(out))
 
             # Wait
@@ -492,8 +495,8 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
     # Static
     #
     @staticmethod
-    def is_jupyter() -> bool:
-        return not sys.stdout.isatty()
+    def is_jupyter(fd: typing.IO) -> bool:
+        return not fd.isatty()
 
     @staticmethod
     def _set_color(value: str) -> str:
@@ -592,23 +595,23 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
         return itertools.cycle(frames)
 
     @staticmethod
-    def _hide_cursor() -> None:
-        if sys.stdout.isatty():
+    def _hide_cursor(fd: typing.IO) -> None:
+        if fd.isatty():
             # ANSI Control Sequence DECTCEM 1 does not work in Jupyter
-            sys.stdout.write("\033[?25l")
-            sys.stdout.flush()
+            fd.write("\033[?25l")
+            fd.flush()
 
     @staticmethod
-    def _show_cursor() -> None:
-        if sys.stdout.isatty():
+    def _show_cursor(fd: typing.IO) -> None:
+        if fd.isatty():
             # ANSI Control Sequence DECTCEM 2 does not work in Jupyter
-            sys.stdout.write("\033[?25h")
-            sys.stdout.flush()
+            fd.write("\033[?25h")
+            fd.flush()
 
     def _clear_line(self) -> None:
-        if sys.stdout.isatty():
+        if self.fd.isatty():
             # ANSI Control Sequence EL does not work in Jupyter
-            sys.stdout.write("\r\033[K")
+            self.fd.write("\r\033[K")
         else:
             fill = " " * self._cur_line_len
-            sys.stdout.write(f"\r{fill}\r")
+            self.fd.write(f"\r{fill}\r")
