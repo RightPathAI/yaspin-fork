@@ -9,6 +9,7 @@ A lightweight terminal spinner.
 """
 from __future__ import annotations
 
+import os
 import sys
 import time
 import signal
@@ -364,7 +365,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
                 _text = to_unicode(text)
             else:
                 _text = str(text)
-            self._fd.write(f"{_text}\n")
+            os.write(self._fd, f"{_text}\n")
             self._cur_line_len = 0
 
     def ok(self, text: str = "OK") -> None:
@@ -397,7 +398,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
         with self._stdout_lock:
             if self._last_frame is None:
                 raise RuntimeError("last_frame is None")
-            self._fd.write(self._last_frame)
+            os.write(self._fd, self._last_frame)
             self._cur_line_len = 0
 
     def _spin(self) -> None:
@@ -417,7 +418,7 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
             # Write
             with self._stdout_lock:
                 self._clear_line()
-                self._fd.write(out)
+                os.write(self._fd, out)
                 self._fd.flush()
                 self._cur_line_len = max(self._cur_line_len, len(out))
 
@@ -597,15 +598,15 @@ class Yaspin:  # pylint: disable=too-many-instance-attributes
     @staticmethod
     def _hide_cursor(fd: typing.IO) -> None:
         # ANSI Control Sequence DECTCEM 1 does not work in Jupyter
-        fd.write("\033[?25l")
+        os.write(fd, "\033[?25l")
         fd.flush()
 
     @staticmethod
     def _show_cursor(fd: typing.IO) -> None:
         # ANSI Control Sequence DECTCEM 2 does not work in Jupyter
-        fd.write("\033[?25h")
+        os.write(fd, "\033[?25h")
         fd.flush()
 
     def _clear_line(self) -> None:
         # ANSI Control Sequence EL does not work in Jupyter
-        self._fd.write("\r\033[K")
+        os.write(self._fd, "\r\033[K")
